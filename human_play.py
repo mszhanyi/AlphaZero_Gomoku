@@ -48,10 +48,10 @@ class Human(object):
 
 
 def run():
-    n = 4
-    width, height = 6, 6
+    n = 5
+    width, height = 9, 9
     # model_file = 'best_policy_8_8_5.model'
-    model_file = 'best_policy.model'
+    model_file = 'zy_best_policy_9_5.model'
     try:
         board = Board(width=width, height=height, n_in_row=n)
         game = Game(board)
