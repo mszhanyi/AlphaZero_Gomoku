@@ -8,6 +8,7 @@ An implementation of the training pipeline of AlphaZero for Gomoku
 from __future__ import print_function
 import random
 import numpy as np
+import logging
 from collections import defaultdict, deque
 from game import Board, Game
 from mcts_pure import MCTSPlayer as MCTS_Pure
@@ -17,6 +18,7 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 # from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
 # from policy_value_net_keras import PolicyValueNet # Keras
 
+logging.basicConfig(filename='train_1.log', level=logging.DEBUG)
 
 class TrainPipeline():
     def __init__(self, init_model=None):
@@ -33,7 +35,7 @@ class TrainPipeline():
         self.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
         self.temp = 1.0  # the temperature param
         self.n_playout = 400  # num of simulations for each move
-        self.c_puct = 5
+        self.c_puct = 5  #By incresing c_puct, we put more weight toward this exploration term. By decresing we more strongly value exploiting the expected results (Q)
         self.buffer_size = 10000
         self.batch_size = 512  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
@@ -125,18 +127,21 @@ class TrainPipeline():
         explained_var_new = (1 -
                              np.var(np.array(winner_batch) - new_v.flatten()) /
                              np.var(np.array(winner_batch)))
-        print(("kl:{:.5f},"
-               "lr_multiplier:{:.3f},"
-               "loss:{},"
-               "entropy:{},"
-               "explained_var_old:{:.3f},"
-               "explained_var_new:{:.3f}"
-               ).format(kl,
-                        self.lr_multiplier,
-                        loss,
-                        entropy,
-                        explained_var_old,
-                        explained_var_new))
+        
+        info_str = ("kl:{:.5f},"
+                    "lr_multiplier:{:.3f},"
+                    "loss:{},"
+                    "entropy:{},"
+                    "explained_var_old:{:.3f},"
+                    "explained_var_new:{:.3f}"
+                    ).format(kl,
+                                self.lr_multiplier,
+                                loss,
+                                entropy,
+                                explained_var_old,
+                                explained_var_new)        
+        print(info_str)
+        logging.debug(info_str)
         return loss, entropy
 
     def policy_evaluate(self, n_games=10):
@@ -167,21 +172,25 @@ class TrainPipeline():
         try:
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)
-                print("batch i:{}, episode_len:{}".format(
-                        i+1, self.episode_len))
+                info_str = "batch i:{}, episode_len:{}".format(
+                        i+1, self.episode_len)
+                print(info_str)
+                logging.debug(info_str)
                 if len(self.data_buffer) > self.batch_size:
                     loss, entropy = self.policy_update()
                 # check the performance of the current model,
                 # and save the model params
                 if (i+1) % self.check_freq == 0:
-                    print("current self-play batch: {}".format(i+1))
+                    info_str = "current self-play batch: {}".format(i+1)
+                    print(info_str)
+                    logging.debug(info_str)
                     win_ratio = self.policy_evaluate()
-                    self.policy_value_net.save_model(f'./zy_current_policy_{self.board_width}_{self.n_in_row}.model')
+                    self.policy_value_net.save_model(f'./zy1_current_policy_{self.board_width}_{self.n_in_row}.model')
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.best_win_ratio = win_ratio
                         # update the best_policy
-                        self.policy_value_net.save_model(f'./zy_best_policy_{self.board_width}_{self.n_in_row}.model')
+                        self.policy_value_net.save_model(f'./zy1_best_policy_{self.board_width}_{self.n_in_row}.model')
                         if (self.best_win_ratio == 1.0 and
                                 self.pure_mcts_playout_num < 5000):
                             self.pure_mcts_playout_num += 1000
@@ -192,7 +201,8 @@ class TrainPipeline():
 
 if __name__ == '__main__':
     import time
-    training_pipeline = TrainPipeline(init_model='zy_current_policy_9_5.model')
+    #training_pipeline = TrainPipeline(init_model='zy_current_policy_9_5.model')
+    training_pipeline = TrainPipeline()
     tic = time.perf_counter()
     training_pipeline.run()
     toc = time.perf_counter()
