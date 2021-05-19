@@ -66,6 +66,9 @@ class TrainPipeline():
         """augment the data set by rotation and flipping
         play_data: [(state, mcts_prob, winner_z), ..., ...]
         """
+        """
+        self-play 数据的扩充，旋转和镜像，将8种等价情况全部存入self-play的data buffer中。
+        """
         extend_data = []
         for state, mcts_porb, winner in play_data:
             for i in [1, 2, 3, 4]:

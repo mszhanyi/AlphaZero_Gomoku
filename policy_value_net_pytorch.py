@@ -19,6 +19,49 @@ def set_learning_rate(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+class ConvBlock(nn.Module):
+    def __init__(self, board_width, board_height):
+        super(ConvBlock, self).__init__()
+        self.board_width = board_width
+        self.board_height = board_height
+        self.action_size = 7
+        self.conv1 = nn.Conv2d(4, 128, 3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(128)
+    def forward(self, s):
+        s = s.view(-1, 4, self.board_width, self.board_height) # batch_size * channels * board_x * board_y
+        s = F.relu(self.bn1(self.conv1(s)))
+        return s
+
+class ResBlock(nn.Module):
+    def __init__(self, inplanes=128, planes=128, stride=1, downsample=None):
+        super(ResBlock, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+    
+    def forward(self, x):
+        residual = x
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += residual
+        out = F.relu(out)
+        return out
+
+'''
+class OutBlock(nn.Module):
+    def __init__(self, board_width, borad_height):
+        super(OutBlock, self).__init__()
+        self.conv == nn.Conv2d(128, 4, kernel_size=1) #value head
+        self.bn = nn.BatchNorm2d(4)
+        self.fc1 = nn.Linear(4*board_width*borad_height, 64)
+        self.fc2 = nn.Linear(64, 1)
+
+        self.conv1 = nn.Conv2d(128, 4, kernel_size=1) # poliy_head
+        self.bn1 = nn.BatchNorm2d(4)
+        self.logsoftmax = nn.LogSoftmax(dim=1)
+        self.fc 
+'''
 
 class Net(nn.Module):
     """policy-value network module"""
@@ -28,9 +71,14 @@ class Net(nn.Module):
         self.board_width = board_width
         self.board_height = board_height
         # common layers
-        self.conv1 = nn.Conv2d(4, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        #self.conv1 = nn.Conv2d(4, 32, kernel_size=3, padding=1)
+        #self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        #self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.conv = ConvBlock(board_width, board_height)
+        for block in range(19):
+            setattr(self, "res_%i" % block, ResBlock())
+ 
+
         # action policy layers
         self.act_conv1 = nn.Conv2d(128, 4, kernel_size=1)
         self.act_fc1 = nn.Linear(4*board_width*board_height,
@@ -42,9 +90,14 @@ class Net(nn.Module):
 
     def forward(self, state_input):
         # common layers
-        x = F.relu(self.conv1(state_input))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        #x = F.relu(self.conv1(state_input))
+        # x = F.relu(self.conv2(x))
+        # x = F.relu(self.conv3(x))
+        # print(state_input.shape)
+        x = self.conv(state_input)
+        for block in range(19):
+            x = getattr(self, "res_%i" % block)(x)
+
         # action policy layers
         x_act = F.relu(self.act_conv1(x))
         x_act = x_act.view(-1, 4*self.board_width*self.board_height)
@@ -53,15 +106,14 @@ class Net(nn.Module):
         x_val = F.relu(self.val_conv1(x))
         x_val = x_val.view(-1, 2*self.board_width*self.board_height)
         x_val = F.relu(self.val_fc1(x_val))
-        x_val = F.tanh(self.val_fc2(x_val))
+        x_val = torch.tanh(self.val_fc2(x_val))
         return x_act, x_val
-
 
 class PolicyValueNet():
     """policy-value network """
     def __init__(self, board_width, board_height,
                  model_file=None, use_gpu=False):
-        self.use_gpu = use_gpu
+        self.use_gpu = torch.cuda.is_available()
         self.board_width = board_width
         self.board_height = board_height
         self.l2_const = 1e-4  # coef of l2 penalty
