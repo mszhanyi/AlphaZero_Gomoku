@@ -6,6 +6,7 @@ An implementation of the training pipeline of AlphaZero for Gomoku
 """
 
 from __future__ import print_function
+import os
 import random
 import numpy as np
 import logging
@@ -18,7 +19,7 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 # from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
 # from policy_value_net_keras import PolicyValueNet # Keras
 
-logging.basicConfig(filename='train_1.log', level=logging.DEBUG)
+logging.basicConfig(filename='train_default.log', level=logging.DEBUG)
 
 class TrainPipeline():
     def __init__(self, init_model=None):
@@ -48,6 +49,11 @@ class TrainPipeline():
         # num of simulations used for the pure mcts, which is used as
         # the opponent to evaluate the trained policy
         self.pure_mcts_playout_num = 1000
+        if os.path.exists(f'./zy1_current_policy_{self.board_width}_{self.n_in_row}.model'):
+            init_model = f'./zy1_current_policy_{self.board_width}_{self.n_in_row}.model'
+        else:
+            raise ValueError("where's checkpoint")
+            
         if init_model:
             # start training from an initial policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
@@ -165,9 +171,11 @@ class TrainPipeline():
                                           is_shown=0)
             win_cnt[winner] += 1
         win_ratio = 1.0*(win_cnt[1] + 0.5*win_cnt[-1]) / n_games
-        print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
+        info_str = "num_playouts:{}, win: {}, lose: {}, tie:{}".format(
                 self.pure_mcts_playout_num,
-                win_cnt[1], win_cnt[2], win_cnt[-1]))
+                win_cnt[1], win_cnt[2], win_cnt[-1])
+        print(info_str)
+        logging.debug(info_str)
         return win_ratio
 
     def run(self):
@@ -180,6 +188,7 @@ class TrainPipeline():
                 print(info_str)
                 logging.debug(info_str)
                 if len(self.data_buffer) > self.batch_size:
+                    # 可以形成一个batch data feed 给network
                     loss, entropy = self.policy_update()
                 # check the performance of the current model,
                 # and save the model params

@@ -71,12 +71,12 @@ class Net(nn.Module):
         self.board_width = board_width
         self.board_height = board_height
         # common layers
-        #self.conv1 = nn.Conv2d(4, 32, kernel_size=3, padding=1)
-        #self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        #self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-        self.conv = ConvBlock(board_width, board_height)
-        for block in range(19):
-            setattr(self, "res_%i" % block, ResBlock())
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        #self.conv = ConvBlock(board_width, board_height)
+        #for block in range(19):
+        #    setattr(self, "res_%i" % block, ResBlock())
  
 
         # action policy layers
@@ -90,13 +90,13 @@ class Net(nn.Module):
 
     def forward(self, state_input):
         # common layers
-        #x = F.relu(self.conv1(state_input))
-        # x = F.relu(self.conv2(x))
-        # x = F.relu(self.conv3(x))
+        x = F.relu(self.conv1(state_input))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
         # print(state_input.shape)
-        x = self.conv(state_input)
-        for block in range(19):
-            x = getattr(self, "res_%i" % block)(x)
+        #x = self.conv(state_input)
+        #for block in range(19):
+        #    x = getattr(self, "res_%i" % block)(x)
 
         # action policy layers
         x_act = F.relu(self.act_conv1(x))
